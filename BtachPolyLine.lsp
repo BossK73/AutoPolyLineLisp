@@ -1,4 +1,5 @@
-;;;    Copyright 2025 æé–åº·
+;;; -*- coding: gb18030 -*-
+;;;    Copyright 2025~2026 Àî¾¸¿µ
 ;;; 
 ;;;    Licensed under the Apache License, Version 2.0 (the "License");
 ;;;    you may not use this file except in compliance with the License.
@@ -12,72 +13,238 @@
 ;;;    See the License for the specific language governing permissions and
 ;;;    limitations under the License.
 
-(princ "\n[æç¤º] å·²åŠ è½½ BatchPoyLine æ’ä»¶ (ç‰ˆæœ¬ 0.1.0)\n")
-(princ "Copyright 2025 æé–åº· All rights reserved.\n")
-(princ "è¿è¡Œ \"BATPL\" å‘½ä»¤ä»¥å¼€å§‹ç»˜åˆ¶é—­åˆçº¿æ¡†\n\n")
+(princ "\n[ÌáÊ¾] ÒÑ¼ÓÔØ BatchPolyLine ²å¼ş (°æ±¾ 1.0.0)\n")
+(princ "Copyright 2025~2026 Àî¾¸¿µ All rights reserved.\n")
+(princ "ÔËĞĞ \"BATPL\" ÃüÁîÒÔ¿ªÊ¼»æÖÆ±ÕºÏÏß¿ò\n\n")
 
-(defun c:BATPL (/ file f line points coords) 
-  (alert "è¯·æ‰“å¼€ä¿å­˜æœ‰åæ ‡ï¼ˆXã€Yï¼‰é›†åˆçš„.txtæ–‡ä»¶\n\næ ¼å¼è¦æ±‚ï¼š\n1. æ¯è¡Œä¸€ä¸ªåæ ‡å¯¹\n2. åæ ‡é—´ç”¨è¥¿æ–‡é€—å·æˆ–ç©ºæ ¼åˆ†éš”\n3. æ–‡ä»¶ç¼–ç ä¸ºä¸å¸¦ BOM çš„ UTF-8")  
-  (command "ucs" "w") 
-  (vl-load-com)
-  (setq file (getfiled "é€‰æ‹©åæ ‡æ–‡ä»¶ï¼ˆUTF-8æ— BOMæ ¼å¼ï¼‰" "" "txt" 0))
-  (if (setq f (open file "r"))
+(vl-load-com)
+
+(setq *batpl-maxerr* 20)     ; ÎŞĞ§ĞĞ×î¶àÖğÌõÏÔÊ¾¶àÉÙÌõ
+(setq *batpl-maxlen* 60)     ; »ØÏÔÔ­Ê¼ĞĞÊ±×î¶àÏÔÊ¾¶àÉÙ¸ö×Ö·û
+
+(setq *batpl-seps* (strcat "," ";" (chr 9) (chr 13) " " (chr 160)
+                            "£¬" "£»" "¡¡" (chr 65279)))
+
+(setq *batpl-sys*  nil
+      *batpl-port* nil
+      *batpl-undo* nil)
+
+(defun batpl-blanks (n / s)
+  (setq s "")
+  (repeat (if (< n 1) 0 n) (setq s (strcat s " ")))
+  s)
+
+(setq *batpl-gap* (batpl-blanks (strlen *batpl-seps*)))
+
+(defun batpl-normalize (s)
+  (vl-string-trim " " (vl-string-translate *batpl-seps* *batpl-gap* s)))
+
+(defun batpl-tokens (s / i n ch cur out)
+  (setq n (strlen s) i 0 cur "" out nil)
+  (while (< i n)
+    (setq ch (substr s (1+ i) 1))
+    (if (= ch " ")
+      (if (/= cur "") (setq out (cons cur out) cur ""))
+      (setq cur (strcat cur ch)))
+    (setq i (1+ i)))
+  (if (/= cur "") (setq out (cons cur out)))
+  (reverse out))
+
+(defun batpl-decimal (tok / i n ch ok dots digits)
+  (setq n (strlen tok) i 0 ok T dots 0 digits 0)
+  (if (< n 1)
+    nil
     (progn
-      (while (setq line (read-line f))
-        (if (> (strlen line) 0)
-          (progn
-            (setq line (vl-string-trim " \t\r\n" line))
-            (setq line (vl-string-subst " " "," line))
-            (setq coords (read (strcat "(" line ")"))) ; åŸä»£ç æ­¤å¤„ç¼ºå°‘å³æ‹¬å·
-            (if (and (listp coords)
-                     (= (length coords) 2)
-                     (numberp (car coords))
-                     (numberp (cadr coords)))
-              (setq points (cons (list (cadr coords) (car coords)) points))
-              (princ 
-                (strcat 
-                  "\n[é”™è¯¯] æ— æ•ˆè¡Œ: \"" line "\"\n"
-                  "      è¦æ±‚: Xã€Yéœ€é€šè¿‡è¥¿æ–‡é€—å·æˆ–ç©ºæ ¼åˆ†éš”ï¼Œåæ ‡ä¹‹é—´éœ€æ¢è¡Œ\n"
-                  "      ç¤ºä¾‹: 100,200 æˆ– 300 400\n"
-                )
-              )
-            )
-          )
-        )
-      )
-      (close f) 
-      (setq points (reverse points))
-      (if points
-        (progn
-          (command "pline")
-          (foreach pt points (command pt))
-          (command "c")
-          (command "zoom" "e")
-          (command "zoom" "0.8x")
-          (alert "çº¿æ¡†ç»˜åˆ¶å®Œæˆï¼")
-        )
-        (alert 
-          (strcat 
-            "æœªæ‰¾åˆ°æœ‰æ•ˆåæ ‡ï¼\n\n"
-            "å¯èƒ½åŸå› ï¼š\n"
-            "1. æ–‡ä»¶å†…å®¹ä¸ºç©º\n"
-            "2. æ‰€æœ‰è¡Œæ ¼å¼é”™è¯¯\n"
-            "3. åˆ†éš”ç¬¦ä½¿ç”¨ä¸­æ–‡æ ‡ç‚¹\n"
-            "è§£å†³æ–¹æ¡ˆï¼šæ£€æŸ¥æ–‡ä»¶å¹¶ç¡®ä¿ç¬¦åˆæ ¼å¼è¦æ±‚"
-          )
-        )
-      )
-    )
-    (alert 
-      (strcat 
-        "æ–‡ä»¶æ‰“å¼€å¤±è´¥ï¼\n\n"
-        "å¸¸è§è§£å†³æ–¹æ³•ï¼š\n"
-        "1. æ£€æŸ¥æ–‡ä»¶è·¯å¾„æ˜¯å¦åŒ…å«ç‰¹æ®Šå­—ç¬¦\n"
-        "2. ç¡®è®¤æ–‡ä»¶æœªåœ¨å…¶ä»–ç¨‹åºä¸­æ‰“å¼€\n"
-        "3. ç¡®ä¿æ–‡ä»¶ç¼–ç ä¸ºä¸å¸¦ BOM çš„ UTF-8\n"
-        "   ï¼ˆå¯ç”¨è®°äº‹æœ¬å¦å­˜ä¸ºæ—¶é€‰æ‹©ç¼–ç ï¼‰"
-      )
-    )
-  )
-  (princ) 
-)
+      (while (and ok (< i n))
+        (setq ch (substr tok (1+ i) 1))
+        (cond
+          ((= ch ".") (setq dots (1+ dots)) (if (> dots 1) (setq ok nil)))
+          ((member ch '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+           (setq digits (1+ digits)))
+          ((and (= i 0) (or (= ch "+") (= ch "-"))) nil)
+          (T (setq ok nil)))
+        (setq i (1+ i)))
+      (if (and ok (> digits 0)) (distof tok 1) nil))))
+
+(defun batpl-parse-line (raw / s toks a b)
+  (setq s (batpl-normalize raw))
+  (setq toks (batpl-tokens s))
+  (cond
+    ((= (length toks) 0) (list 'SKIP))
+    ((= (length toks) 1) (list 'BAD "Ö»ÓĞ 1 ¸öÊıÖµ"))
+    ((> (length toks) 2)
+     (list 'BAD (strcat "ÓĞ " (itoa (length toks)) " ¸öÊıÖµ£¨Ö»Ö§³ÖÁ½ÁĞ£ºX Y£©")))
+    (T
+     (setq a (batpl-decimal (car toks))
+           b (batpl-decimal (cadr toks)))
+     (cond
+       ((null a) (list 'BAD (strcat "\"" (car toks) "\" ²»ÊÇÊ®½øÖÆÊıÖµ")))
+       ((null b) (list 'BAD (strcat "\"" (cadr toks) "\" ²»ÊÇÊ®½øÖÆÊıÖµ")))
+       (T (list 'OK b a))))))
+
+(defun batpl-parse-lines (lines / n r pts ok bad errs)
+  (setq n 0 pts nil ok 0 bad 0 errs nil)
+  (foreach ln lines
+    (setq n (1+ n))
+    (setq r (batpl-parse-line ln))
+    (cond
+      ((= (car r) 'SKIP) nil)
+      ((= (car r) 'OK)
+       (setq ok (1+ ok)
+             pts (cons (list (cadr r) (caddr r)) pts)))
+      (T
+       (setq bad (1+ bad))
+       (if (<= bad *batpl-maxerr*)
+         (setq errs (cons (list n ln (cadr r)) errs))))))
+  (list (reverse pts) ok bad n (reverse errs)))
+
+(defun batpl-parse-file (f / ln lines)
+  (setq lines nil)
+  (while (setq ln (read-line f))
+    (setq lines (cons ln lines)))
+  (batpl-parse-lines (reverse lines)))
+
+(defun batpl-same-pt (a b)
+  (and (= (car a) (car b)) (= (cadr a) (cadr b))))
+
+(defun batpl-dedupe (pts / out n)
+  (setq out nil n 0)
+  (foreach p pts
+    (if (or (null out) (not (batpl-same-pt p (car out))))
+      (setq out (cons p out))
+      (setq n (1+ n))))
+  (setq out (reverse out))
+  (if (and (> (length out) 1) (batpl-same-pt (car out) (last out)))
+    (progn
+      (setq out (reverse (cdr (reverse out))))
+      (setq n (1+ n))))
+  (list out n))
+
+(defun batpl-sys-freeze (names / lst)
+  (setq lst nil)
+  (foreach nm names
+    (setq lst (cons (cons nm (getvar nm)) lst)))
+  (setq *batpl-sys* lst)
+  (foreach nm names
+    (setvar nm 0))
+  (princ))
+
+(defun batpl-sys-thaw ()
+  (foreach itm *batpl-sys*
+    (setvar (car itm) (cdr itm)))
+  (setq *batpl-sys* nil)
+  (princ))
+
+(defun batpl-restore ()
+  (batpl-sys-thaw)
+  (if *batpl-port*
+    (progn (close *batpl-port*) (setq *batpl-port* nil)))
+  (if *batpl-undo*
+    (progn (setq *batpl-undo* nil)
+           (command "_.undo" "_end")))
+  (princ))
+
+(defun batpl-abort (msg)
+  (batpl-restore)
+  (if (and msg (/= msg ""))
+    (princ (strcat "\n[ÒÑÖĞ¶Ï] " msg))
+    (princ "\n[ÒÑÈ¡Ïû]"))
+  (princ))
+
+(defun batpl-print-errors (errs / itm txt)
+  (foreach itm errs
+    (setq txt (cadr itm))
+    (if (> (strlen txt) *batpl-maxlen*)
+      (setq txt (strcat (substr txt 1 *batpl-maxlen*) "...")))
+    (princ (strcat "\n[´íÎó] µÚ " (itoa (car itm)) " ĞĞÎŞĞ§: \"" txt "\""
+                   "  (Ô­Òò: " (caddr itm) ")"))))
+
+(defun batpl-draw (pts / newent)
+  (batpl-sys-freeze '("OSMODE" "ORTHOMODE" "SNAPMODE" "CMDECHO"))
+  (command "_.undo" "_begin")
+  (setq *batpl-undo* T)
+  (if (entmake (append (list '(0 . "LWPOLYLINE")
+                             '(100 . "AcDbEntity")
+                             '(100 . "AcDbPolyline")
+                             (cons 90 (length pts))
+                             '(70 . 1)
+                             '(210 0.0 0.0 1.0)
+                             '(38 . 0.0))
+                       (mapcar '(lambda (q) (cons 10 q)) pts)))
+    (progn
+      (setq newent (entlast))
+      (command "_.zoom" "_o" newent "")
+      (if *batpl-undo*
+        (progn (command "_.undo" "_end")
+               (setq *batpl-undo* nil)))
+      T)
+    (progn
+      (if *batpl-undo*
+        (progn (command "_.undo" "_end")
+               (setq *batpl-undo* nil)))
+      nil)))
+
+(defun batpl-run (file / f res pts ok bad n npts ded ndup result)
+  (setq f (open file "r"))
+  (if (null f)
+    (progn
+      (princ (strcat "\n[Ê§°Ü] ÎŞ·¨´ò¿ªÎÄ¼ş£º" file))
+      nil)
+    (progn
+      (setq *batpl-port* f)
+      (setq res (batpl-parse-file f))
+      (close f)
+      (setq *batpl-port* nil
+            f nil)
+      (setq pts (car res) ok (cadr res) bad (caddr res) n (cadddr res))
+      (batpl-print-errors (nth 4 res))
+      (if (> bad *batpl-maxerr*)
+        (princ (strcat "\n[ÌáÊ¾] ÁíÓĞ " (itoa (- bad *batpl-maxerr*))
+                       " ´¦ÎŞĞ§ĞĞÎ´ÖğÌõÏÔÊ¾¡£")))
+      (setq ded (batpl-dedupe pts)
+            pts (car ded)
+            ndup (cadr ded))
+      (if (> ndup 0)
+        (princ (strcat "\n[ÌáÊ¾] ÒÑºÏ²¢ÖØºÏµÄÖØ¸´×ø±ê " (itoa ndup)
+                       " ¸ö£ºÓĞĞ§×ø±ê " (itoa ok) " ¡ú " (itoa (length pts)) " ¸ö¡£")))
+      (setq npts (length pts))
+      (setq result
+        (cond
+          ((< npts 3)
+           (princ (strcat "\n[ÌáÊ¾] ÓĞĞ§×ø±êÖ»ÓĞ " (itoa npts)
+                          " ¸ö£¬±ÕºÏÏß¿òÖÁÉÙĞèÒª 3 ¸ö£¬Î´»æÖÆ¡£"
+                          "\n        ÓĞĞ§ " (itoa ok) " ĞĞ£¬ÎŞĞ§ " (itoa bad)
+                          " ĞĞ£¬¹² " (itoa n) " ĞĞ¡£"))
+           (if (and (= ok 0) (> bad 0))
+             (princ "\n[ÌáÊ¾] ËùÓĞĞĞ¶¼Ã»½âÎö³öÀ´£ºÇë¼ì²éÎÄ¼ş±àÂë£¨UTF-8£©Óë·Ö¸ô·û£¨¶ººÅ/¿Õ¸ñ/Tab/·ÖºÅ£©¡£"))
+           nil)
+          ((batpl-draw pts)
+           (princ (strcat "\n[Íê³É] ÒÑ»æÖÆ±ÕºÏÏß¿ò£º¶¥µã " (itoa npts)
+                          " ¸ö¡£ÓĞĞ§ " (itoa ok) " ĞĞ£¬ÎŞĞ§ " (itoa bad)
+                          " ĞĞ£¬¹² " (itoa n) " ĞĞ¡£"))
+           T)
+          (T
+           (princ (strcat "\n[Ê§°Ü] entmake ´´½¨¶à¶ÎÏßÊ§°Ü£¨µ±Ç°Í¼²ã = " (getvar "CLAYER")
+                          "£©£¬Í¼Ö½Î´¸Ä¶¯¡£"))
+           nil)))
+      (batpl-restore)
+      result)))
+
+(defun batpl-getfiled (title default ext flags / saved res)
+  (setq saved (getvar "FILEDIA"))
+  (setq res (getfiled title default ext flags))
+  (setvar "FILEDIA" saved)
+  res)
+
+(defun c:BATPL (/ *error* file)
+  (setq *error* batpl-abort)
+  (princ "\n[BatchPolyLine] ×ø±êÎÄ¼ş£ºÃ¿ĞĞÒ»¸öµã£¬Á½ÁĞÊ®½øÖÆÊıÖµ")
+  (princ "\n                µÚÒ»ÁĞ = X£¨¶ÔÓ¦ CAD µÄ Y£©£¬µÚ¶şÁĞ = Y£¨¶ÔÓ¦ CAD µÄ X£©")
+  (princ "\n                ·Ö¸ô·û£º¶ººÅ / ¿Õ¸ñ / Tab / ·ÖºÅ£¬È«½ÇÒà¿É£»¿ÕĞĞ×Ô¶¯Ìø¹ı\n")
+  (setq file (batpl-getfiled "Ñ¡Ôñ×ø±êÎÄ¼ş£¨X Y£©" "" "txt" 0))
+  (if (null file)
+    (princ "\n[È¡Ïû] Î´Ñ¡ÔñÎÄ¼ş£¬ÃüÁîÎ´Ö´ĞĞ¡£")
+    (batpl-run file))
+  (batpl-restore)
+  (princ))
+(princ)
